@@ -1,0 +1,323 @@
+{
+  "info": {
+    "name": "ValueApi",
+    "description": "Read-only vehicle catalog and asking-price valuation API. No authentication is currently required by the Flask application. Start the API using src/api/README.md, then send requests to the local baseUrl. Change collection variables in Postman as needed; environment variables with the same names override them.\n\nRun List makes first and copy an actual ID into makeId. Use Make details to choose year, make, and model values present in your imported catalog. Sample variable values are illustrative and do not guarantee matching data.\n\nCatalog responses are cached per worker for 15 minutes by default. Database-dependent requests may return 503 when unavailable. Valuations may return 422 when there is insufficient evidence or calibration. Imports are CLI operations, not HTTP endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:5001",
+      "type": "string",
+      "description": "API origin without a trailing slash. Override for another target."
+    },
+    {
+      "key": "makeId",
+      "value": "1",
+      "type": "string",
+      "description": "Replace with an ID returned by List makes."
+    },
+    {
+      "key": "year",
+      "value": "2020",
+      "type": "string",
+      "description": "Four-digit model year, from 1886 through next year."
+    },
+    {
+      "key": "make",
+      "value": "Toyota",
+      "type": "string",
+      "description": "Required make name, at most 120 characters."
+    },
+    {
+      "key": "model",
+      "value": "Camry",
+      "type": "string",
+      "description": "Required model name, at most 120 characters."
+    },
+    {
+      "key": "mileage",
+      "value": "60000",
+      "type": "string",
+      "description": "Optional finite mileage from 0 to 10000000, before unit conversion."
+    },
+    {
+      "key": "mileageUnit",
+      "value": "MI",
+      "type": "string",
+      "description": "KM or MI. Enable together with mileage."
+    },
+    {
+      "key": "currency",
+      "value": "USD",
+      "type": "string",
+      "description": "Three-letter currency code; defaults to USD. No currency conversion."
+    },
+    {
+      "key": "country",
+      "value": "US",
+      "type": "string",
+      "description": "Optional two-letter country code."
+    },
+    {
+      "key": "region",
+      "value": "California",
+      "type": "string",
+      "description": "Optional region name, at most 80 characters; use Valuation locations to find recorded values."
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Reports API responsiveness; does not check the database. Returns 200 with {\"status\": \"ok\"}."
+      },
+      "response": [
+        {
+          "name": "API responding",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Reports API responsiveness; does not check the database. Returns 200 with {\"status\": \"ok\"}."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"status\": \"ok\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Catalog",
+      "item": [
+        {
+          "name": "List makes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/makes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "makes"
+              ]
+            },
+            "description": "Returns {makes: [{id, name}]} in alphabetical order. Use an ID in Make details. Errors: 503 Catalog temporarily unavailable."
+          },
+          "response": []
+        },
+        {
+          "name": "Make details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/makes/{{makeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "makes",
+                "{{makeId}}"
+              ]
+            },
+            "description": "Returns {id, name, models: [{id, name, years: [{id, year, trims: [{id, name}]}]}]}. makeId must be an integer from List makes. Models, years, and trims can be empty. Errors: 404 Make not found; 503 Catalog temporarily unavailable."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Location hint",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "CF-IPCountry",
+            "value": "CA",
+            "description": "Optional Cloudflare country hint for local testing.",
+            "disabled": true
+          },
+          {
+            "key": "X-Vercel-IP-Country",
+            "value": "US",
+            "description": "Optional Vercel country hint for local testing.",
+            "disabled": true
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/location",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "location"
+          ]
+        },
+        "description": "Returns {countryCode: CA | US | null} using supported CDN country headers. Cloudflare takes precedence over Vercel. Without supported headers the result is null. Response uses Cache-Control: private, no-store. Enable one of the sample headers to simulate a hint locally; a deployed CDN may replace it."
+      },
+      "response": []
+    },
+    {
+      "name": "Valuations",
+      "item": [
+        {
+          "name": "Valuation locations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/valuations/locations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "valuations",
+                "locations"
+              ]
+            },
+            "description": "Returns {locations: [{country, region}]} from recorded dealer data, sorted by region then country. Country may be null. Use these values for valuation filters. Errors: 503 Locations temporarily unavailable."
+          },
+          "response": []
+        },
+        {
+          "name": "Model A asking-price estimate",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/valuations/model-a?year={{year}}&make={{make}}&model={{model}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "valuations",
+                "model-a"
+              ],
+              "query": [
+                {
+                  "key": "year",
+                  "value": "{{year}}",
+                  "description": "Required four-digit model year, from 1886 through next year."
+                },
+                {
+                  "key": "make",
+                  "value": "{{make}}",
+                  "description": "Required make name; at most 120 characters."
+                },
+                {
+                  "key": "model",
+                  "value": "{{model}}",
+                  "description": "Required model name; at most 120 characters."
+                },
+                {
+                  "key": "mileage",
+                  "value": "{{mileage}}",
+                  "description": "Optional mileage, 0\u201310000000. Enable mileageUnit too.",
+                  "disabled": true
+                },
+                {
+                  "key": "mileageUnit",
+                  "value": "{{mileageUnit}}",
+                  "description": "KM or MI. Requires mileage.",
+                  "disabled": true
+                },
+                {
+                  "key": "currency",
+                  "value": "{{currency}}",
+                  "description": "Three-letter code; default USD. No currency conversion.",
+                  "disabled": true
+                },
+                {
+                  "key": "country",
+                  "value": "{{country}}",
+                  "description": "Two-letter country code.",
+                  "disabled": true
+                },
+                {
+                  "key": "region",
+                  "value": "{{region}}",
+                  "description": "Nonempty region name, at most 80 characters.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Requires year, make, and model. Optional parameters are disabled initially; enable them in the Params tab. Enable mileage and mileageUnit together. Unknown or repeated query parameters are rejected. Currency defaults to USD; no currency conversion is performed.\n\nReturns estimatedAskingPrice, currency, marketRange, referenceMileageKm, requestedMileageKm, mileageSource, confidence, comparables, valuationBasis, historicalReference, locationSelection, and listingSummary. Mileage in the response is kilometres. Location selection may fall back to a wider area; inspect locationSelection. valuationBasis is current, historical, or projected. Time projection is disabled by default. Confidence and market ranges are provisional, not statistical guarantees.\n\nErrors: 400 {error} for invalid input; 422 {error: Insufficient evidence, reason, reasonCode} when the data/settings cannot support an estimate; 503 {error: Valuation temporarily unavailable} for database errors."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

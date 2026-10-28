@@ -1,0 +1,104 @@
+name: valueapi-deploy
+
+services:
+  cli:
+    extends:
+      file: compose.yaml
+      service: cli
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --innodb-buffer-pool-size=${MYSQL_BUFFER_POOL_SIZE:-2G}
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-valueapi}
+      MYSQL_USER: ${MYSQL_USER:-valueapi}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql --host=127.0.0.1 --user="$$MYSQL_USER" --database="$$MYSQL_DATABASE" --execute="SELECT 1" > /dev/null'
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    image: ${API_IMAGE:-valueapi-api:local}
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: ${MYSQL_USER:-valueapi}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-valueapi}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      # Do not pass the database administrator password to the application.
+      MYSQL_ROOT_PASSWORD: ""
+    depends_on:
+      mysql:
+        condition: service_healthy
+    logging: *logging
+
+  frontend:
+    image: ${FRONTEND_IMAGE:-valueapi-frontend:local}
+    build: ./src/frontend
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    logging: *logging
+
+  proxy:
+    image: traefik:v3.6
+    restart: unless-stopped
+    command:
+      - --entrypoints.web.address=:80
+      - --providers.file.filename=/etc/traefik/routes.yaml
+      - --ping=true
+      - --accesslog=true
+    ports:
+      - "${HTTP_BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-80}:80"
+    configs:
+      - source: proxy_routes
+        target: /etc/traefik/routes.yaml
+    depends_on:
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, traefik, healthcheck, --ping]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    logging: *logging
+
+configs:
+  proxy_routes:
+    content: |
+      http:
+        routers:
+          frontend:
+            entryPoints: [web]
+            rule: "PathPrefix(`/`)"
+            service: frontend
+        services:
+          frontend:
+            loadBalancer:
+              servers:
+                - url: http://frontend:80
+
+volumes:
+  import_data:
+  mysql_data:
+    name: ${MYSQL_DATA_VOLUME:-}
+    external: ${MYSQL_DATA_VOLUME_EXTERNAL:-false}

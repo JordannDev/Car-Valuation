@@ -1,0 +1,291 @@
+Project ValueApi {
+  database_type: 'MySQL'
+  Note: '''
+    Proposed MySQL 8.4 schema with nine core tables and five attribute lookup tables.
+    The API defines the SQLAlchemy models and Alembic migrations. The CLI calls its import service.
+    Save original CSVs, unchanged rule manifests, and detailed issue reports outside the database.
+    Clean up matching keys consistently and use binary comparison. Do not guess missing makes.
+    Leave uncertain attributes null. Only query data from completed imports.
+    These are listed asking prices, not confirmed sale prices.
+    Use UTC database sessions and strict SQL mode. created_at and updated_at track database changes,
+    separately from source observation dates. Keep created_at unchanged after the row is inserted.
+    DBML describes timestamp defaults; database.mysql.sql adds automatic MySQL ON UPDATE clauses.
+    Keep that behavior in future API migrations, including for bulk updates and upserts.
+  '''
+}
+
+// These values become MySQL ENUM columns when exported.
+Enum import_batch_status {
+  pending [note: 'Waiting to begin import.']
+  running [note: 'The import is running; its results are not yet available to query.']
+  completed [note: 'The import finished and its accepted snapshots are available to query.']
+  failed [note: 'The import failed. Fix the cause and resume the same batch.']
+}
+
+Enum listing_status {
+  in_transit [note: 'The provider reports that the vehicle is in transit.']
+}
+
+Table makes {
+  id bigint [pk, increment, not null]
+  name varchar(120) [not null]
+  normalized_name varchar(120) [not null, unique, note: 'Name with whitespace trimmed and case normalized, matched using binary collation.']
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+}
+
+Table models {
+  id bigint [pk, increment, not null]
+  make_id bigint [not null]
+  name varchar(160) [not null]
+  normalized_name varchar(160) [not null, note: 'Match this name within its make, using binary collation.']
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  indexes {
+    (make_id, normalized_name) [unique, name: 'uq_models_make_name']
+  }
+}
+
+Table model_years {
+  id bigint [pk, increment, not null]
+  model_id bigint [not null]
+  year smallint [not null]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  indexes {
+    (model_id, year) [unique, name: 'uq_model_years_model_year']
+  }
+}
+
+Table trims {
+  id bigint [pk, increment, not null]
+  model_year_id bigint [not null]
+  name varchar(200) [not null]
+  normalized_name varchar(200) [not null, note: 'Match this name within its model year, using binary collation.']
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  indexes {
+    (model_year_id, normalized_name) [unique, name: 'uq_trims_model_year_name']
+    (id, model_year_id) [unique, name: 'uq_trims_id_model_year', note: 'Allows the database to check that a vehicle trim belongs to its model year.']
+  }
+
+  Note: 'Vehicles with the same trim can have different engines and drivetrains, so store those details on the vehicle.'
+}
+
+Table vehicles {
+  id bigint [pk, increment, not null]
+  vin char(17) [not null, unique, note: 'Use uppercase ASCII and binary comparison. Validate the VIN before importing it.']
+  model_year_id bigint [not null]
+  trim_id bigint [null]
+  drivetrain_code varchar(32) [null]
+  body_type_code varchar(32) [null]
+  fuel_type_code varchar(32) [null]
+  powertrain_type_code varchar(32) [null]
+  engine_displacement_liters decimal(5,2) [null]
+  engine_cylinders smallint [null]
+  exterior_color_code varchar(32) [null]
+  interior_color_code varchar(32) [null]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  indexes {
+    (model_year_id, trim_id) [name: 'ix_vehicles_model_year_trim']
+  }
+
+  checks {
+    `engine_displacement_liters >= 0` [name: 'ck_vehicles_engine_displacement_nonnegative']
+    `engine_cylinders >= 0` [name: 'ck_vehicles_engine_cylinders_nonnegative']
+  }
+
+  Note: '''
+    Keep one physical vehicle per VIN and leave uncertain attributes null.
+    The composite foreign key checks that the selected trim belongs to model_year_id.
+    Report conflicting source details rather than overwriting values already saved.
+    Do not save uncertain roof, accent, or two-tone color matches as the vehicle color.
+  '''
+}
+
+Table dealers {
+  id bigint [pk, increment, not null]
+  name varchar(255) [not null]
+  identity_key char(64) [not null, unique, note: 'Hash of the cleaned-up dealer name and full address, matched using binary comparison.']
+  website varchar(2048) [null]
+  street varchar(255) [null]
+  city varchar(120) [null]
+  state_or_province varchar(80) [null]
+  postal_code varchar(20) [null, note: 'Store as text to keep leading zeros and Canadian postal codes intact.']
+  country_code char(2) [null]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  Note: 'One dealer location, matched by its name and full address. If those details are incomplete, report an import issue rather than matching by name or website alone.'
+}
+
+Table listings {
+  id bigint [pk, increment, not null]
+  vehicle_id bigint [not null]
+  dealer_id bigint [not null]
+  source_name varchar(80) [not null]
+  source_listing_id varchar(255) [null]
+  fallback_identity_key char(64) [null, note: 'Key built from the source, VIN, dealer, and a reliable first-seen date, matched using binary comparison.']
+  first_seen_date date [null]
+  last_seen_date date [null]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  indexes {
+    (source_name, source_listing_id) [unique, name: 'uq_listings_source_id']
+    (source_name, fallback_identity_key) [unique, name: 'uq_listings_source_fallback']
+    (vehicle_id, dealer_id) [name: 'ix_listings_vehicle_dealer']
+  }
+
+  Note: '''
+    One sale listing. The same VIN may be listed by different dealers or relisted later.
+    Use the provider listing ID when available. Otherwise require enough details to identify the listing;
+    if those details are missing, report the row as unmatched rather than guessing a merge.
+    Use binary comparison for source keys. Unique keys may contain null for more than one row.
+  '''
+}
+
+Table listing_observations {
+  id bigint [pk, increment, not null]
+  listing_id bigint [not null]
+  import_batch_id bigint [not null]
+  source_record_number bigint [not null, note: 'Original CSV record number, counting the header as 1 and the first data record as 2.']
+  observed_at datetime(6) [null, note: 'When the source snapshot was taken, in UTC, if known. Do not replace a missing date with the import time.']
+  listing_price decimal(18,2) [null, note: 'The listed asking price. Leave missing prices null rather than setting them to zero.']
+  currency_code char(3) [null, note: 'Confirm the currency before using this snapshot for valuation.']
+  listing_mileage bigint [null]
+  mileage_unit varchar(2) [null, note: 'MI or KM. Confirm the unit before using this snapshot for valuation.']
+  used boolean [null]
+  certified boolean [null]
+  listing_status listing_status [null, note: 'in_transit means the provider reports the vehicle is in transit. NULL means unknown or not supplied, not sold.']
+  first_seen_date date [null, note: 'Date reported in this source snapshot.']
+  last_seen_date date [null, note: 'Date reported in this source snapshot.']
+  dealer_vdp_last_seen_date date [null]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  indexes {
+    (import_batch_id, source_record_number) [unique, name: 'uq_observations_batch_record']
+    (listing_id, observed_at) [name: 'ix_observations_listing_observed']
+  }
+
+  checks {
+    `source_record_number >= 2` [name: 'ck_observations_source_record']
+    `listing_price >= 0` [name: 'ck_observations_price_nonnegative']
+    `listing_mileage >= 0` [name: 'ck_observations_mileage_nonnegative']
+    `mileage_unit IN ('MI', 'KM')` [name: 'ck_observations_mileage_unit']
+    `used IN (0, 1)` [name: 'ck_observations_used_boolean']
+    `certified IN (0, 1)` [name: 'ck_observations_certified_boolean']
+  }
+
+  Note: '''
+    One source row in one file. New files add snapshots; retries reuse the same batch and row keys.
+    Keep price and mileage history. Comparable queries count each VIN once and choose a usable
+    snapshot with known currency, units, and a suitable source date. Repeated imports must not give a vehicle extra weight.
+  '''
+}
+
+Table import_batches {
+  id bigint [pk, increment, not null]
+  source_name varchar(80) [not null]
+  source_file_name varchar(255) [not null]
+  source_file_hash char(64) [not null, note: 'SHA-256 hash of the original file.']
+  source_file_uri varchar(2048) [not null, note: 'Location of the original file, saved outside the database.']
+  normalization_version varchar(40) [not null]
+  rules_hash char(64) [not null, note: 'Hash of the settings and rule code used to prepare this file.']
+  manifest_uri varchar(2048) [not null, note: 'Manifest saved for this run. Keep it unchanged and retain earlier manifests outside the database when reprocessing.']
+  status import_batch_status [not null, default: 'pending', note: 'pending: waiting to start; running: importing; completed: available to query; failed: can be resumed.']
+  started_at datetime(6) [null, note: 'UTC.']
+  completed_at datetime(6) [null, note: 'UTC.']
+  total_rows bigint [not null, default: 0]
+  accepted_rows bigint [not null, default: 0]
+  rejected_rows bigint [not null, default: 0]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  indexes {
+    (source_name, source_file_hash) [unique, name: 'uq_import_batches_source_file']
+  }
+
+  checks {
+    `total_rows >= 0 AND accepted_rows >= 0 AND rejected_rows >= 0` [name: 'ck_import_batches_counts_nonnegative']
+    `accepted_rows + rejected_rows <= total_rows` [name: 'ck_import_batches_counts_total']
+    `status <> 'completed' OR accepted_rows + rejected_rows = total_rows` [name: 'ck_import_batches_completed_counts']
+  }
+
+  Note: '''
+    Keep one batch per file, including retries. Resume failed imports with the same batch and row keys.
+    Reprocessing updates calculated results for existing records. It must not create new market
+    snapshots, and it must retire calculated records that are now rejected. Keep earlier manifests outside the database.
+    Keep incomplete imports out of valuation queries and detailed row issues outside the database.
+  '''
+}
+
+Table drivetrains {
+  code varchar(32) [pk, not null]
+  display_name varchar(100) [not null]
+  is_specific boolean [not null]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  Note: 'Keep FWD, RWD, AWD, and 4WD separate. Broader categories such as 2WD, AWD_OR_4WD, and OTHER have is_specific=false.'
+}
+
+Table body_types {
+  code varchar(32) [pk, not null]
+  display_name varchar(100) [not null]
+  is_specific boolean [not null]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+}
+
+Table fuel_types {
+  code varchar(32) [pk, not null]
+  display_name varchar(100) [not null]
+  is_specific boolean [not null]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  Note: 'Includes GASOLINE, DIESEL, BIODIESEL, ELECTRIC, and FLEX_FUEL. Store HYBRID under powertrain_types without guessing which fuel it burns.'
+}
+
+Table powertrain_types {
+  code varchar(32) [pk, not null]
+  display_name varchar(100) [not null]
+  is_specific boolean [not null]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  Note: 'HYBRID is supported. Only use a more specific plug-in or battery-electric category when the source states it.'
+}
+
+Table colors {
+  code varchar(32) [pk, not null]
+  display_name varchar(100) [not null]
+  is_specific boolean [not null]
+  created_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+  updated_at datetime(6) [not null, default: `CURRENT_TIMESTAMP(6)`]
+
+  Note: 'Use these colors for both interior and exterior. OTHER is a broad category; leave uncertain matches null.'
+}
+
+Ref fk_models_make: models.make_id > makes.id [delete: restrict, update: restrict]
+Ref fk_model_years_model: model_years.model_id > models.id [delete: restrict, update: restrict]
+Ref fk_trims_model_year: trims.model_year_id > model_years.id [delete: restrict, update: restrict]
+Ref fk_vehicles_model_year: vehicles.model_year_id > model_years.id [delete: restrict, update: restrict]
+Ref fk_vehicles_trim_year: vehicles.(trim_id, model_year_id) > trims.(id, model_year_id) [delete: restrict, update: restrict]
+Ref fk_vehicles_drivetrain: vehicles.drivetrain_code > drivetrains.code [delete: restrict, update: restrict]
+Ref fk_vehicles_body_type: vehicles.body_type_code > body_types.code [delete: restrict, update: restrict]
+Ref fk_vehicles_fuel_type: vehicles.fuel_type_code > fuel_types.code [delete: restrict, update: restrict]
+Ref fk_vehicles_powertrain_type: vehicles.powertrain_type_code > powertrain_types.code [delete: restrict, update: restrict]
+Ref fk_vehicles_exterior_color: vehicles.exterior_color_code > colors.code [delete: restrict, update: restrict]
+Ref fk_vehicles_interior_color: vehicles.interior_color_code > colors.code [delete: restrict, update: restrict]
+Ref fk_listings_vehicle: listings.vehicle_id > vehicles.id [delete: restrict, update: restrict]
+Ref fk_listings_dealer: listings.dealer_id > dealers.id [delete: restrict, update: restrict]
+Ref fk_observations_listing: listing_observations.listing_id > listings.id [delete: restrict, update: restrict]
+Ref fk_observations_batch: listing_observations.import_batch_id > import_batches.id [delete: restrict, update: restrict]

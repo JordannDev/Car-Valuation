@@ -1,0 +1,18 @@
+[project]
+name = "valueapi-cli"
+version = "0.1.0"
+description = "Sample data importer for the vehicle valuation application."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["polars[rtcompat]>=1.44.2,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.17.3,<0.18"]
+import = ["pyarrow>=20,<27"]
+
+[tool.setuptools.packages.find]
+include = ["reader*", "ingestion*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

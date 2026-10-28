@@ -1,0 +1,6 @@
+# The 999-row sample cannot establish population support for the full inventory.
+# Permit identifiable sample vehicles without changing production defaults.
+version = "10"
+minimum_model_vins = 1
+minimum_make_models = 1
+aliases_file = "aliases.example.json"

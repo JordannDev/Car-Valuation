@@ -1,0 +1,3 @@
+Migrations for the CarValue API...
+
+Run commands from src/api. Read the ../README.md for model info, database configuration, and revision/upgrade commands.

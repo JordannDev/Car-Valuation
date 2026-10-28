@@ -1,0 +1,1 @@
+This is set of scripts I had Codex write to help with performance monitoring, I was looking into optimizing import times as if you were doing multiple imports over time - this would certainly be a concern.

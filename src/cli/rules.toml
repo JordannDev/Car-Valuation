@@ -1,0 +1,44 @@
+# Aliases are added to the defaults. Placeholder tables replace the defaults.
+# Optional JSON overrides, relative to this file (or use CLI --aliases):
+# aliases_file = "aliases.example.json"
+version = "10"
+minimum_model_vins = 200
+minimum_make_models = 5
+# Treat quote marks in source fields as literal text, such as inch marks.
+quote_char = ""
+enabled = ["format", "normalize", "color_fallback", "types", "validate"]
+
+[placeholders]
+# A drivetrain label in the fuel column does not tell us the fuel type.
+fuel_type = ["awd"]
+exterior_color = ["n/a", "na", "unknown"]
+interior_color = ["n/a", "na", "unknown"]
+
+[aliases.driven_wheels]
+"front-wheel drive" = "FWD"
+fwd = "FWD"
+"4x4" = "4WD"
+"4wd" = "4WD"
+awd = "AWD"
+"rear-wheel drive" = "RWD"
+rwd = "RWD"
+
+[aliases.fuel_type]
+gasoline = "GASOLINE"
+diesel = "DIESEL"
+biodiesel = "BIODIESEL"
+
+[aliases.exterior_color]
+white = "WHITE"
+"oxford white" = "WHITE"
+black = "BLACK"
+silver = "SILVER"
+gray = "GRAY"
+grey = "GRAY"
+
+[aliases.interior_color]
+white = "WHITE"
+black = "BLACK"
+silver = "SILVER"
+gray = "GRAY"
+grey = "GRAY"

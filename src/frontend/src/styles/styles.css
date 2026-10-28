@@ -1,0 +1,915 @@
+:root {
+  color-scheme: light;
+  font-family: var(--font-family-body, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  background: var(--color-background-body);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--color-text-primary);
+  background: var(--color-background-body);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.valuation-app {
+  min-height: 100vh;
+  padding-bottom: var(--spacing-6);
+}
+
+.hero {
+  position: relative;
+  z-index: 1;
+  min-height: 19rem;
+  overflow: visible;
+  isolation: isolate;
+  padding-block: 1.5rem 2.25rem;
+  background: var(--color-background-body);
+}
+
+.hero::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(90deg, var(--color-background-body) 0%, color-mix(in oklab, var(--color-background-body) 92%, transparent) 28%, color-mix(in oklab, var(--color-background-body) 64%, transparent) 52%, color-mix(in oklab, var(--color-background-body) 8%, transparent) 76%, transparent 100%), linear-gradient(0deg, var(--color-background-body) 0%, color-mix(in oklab, var(--color-background-body) 10%, transparent) 20%, transparent 55%);
+  content: "";
+}
+
+.hero-image {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 62%;
+}
+
+.hero-content,
+.dashboard-content {
+  width: min(82.5rem, calc(100% - 3rem));
+  margin-inline: auto;
+}
+
+.hero-content > h1 {
+  width: fit-content;
+  max-width: 38rem;
+  margin: 0;
+  font-size: 2.15rem;
+  font-weight: 720;
+  letter-spacing: -0.045em;
+  line-height: 1.1;
+}
+
+.hero-subtitle {
+  display: block;
+  max-width: 40rem;
+  margin-block: 0.5rem 1.15rem;
+  color: var(--color-text-secondary);
+  font-size: 1.02rem;
+}
+
+/* Keep the final line breaks in place as the letters appear once on page load. */
+.hero-content > h1 .headline-visual,
+.hero-content > h1 .headline-visual span {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
+.headline-word {
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+  white-space: nowrap;
+}
+
+.headline-letter {
+  opacity: 1;
+  /* Hide letters until their reveal starts, then leave them visible normally. */
+  animation: headline-type 55ms steps(1, end) backwards;
+}
+
+.headline-underline {
+  position: absolute;
+  inset-inline-start: -5%;
+  bottom: -0.07em;
+  width: 110%;
+  height: 0.14em;
+  overflow: visible;
+  fill: var(--color-accent);
+  pointer-events: none;
+}
+
+.headline-underline {
+  animation: headline-mark 440ms cubic-bezier(0.22, 1, 0.36, 1) var(--headline-emphasis-delay) both;
+}
+
+@keyframes headline-type {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes headline-mark {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+.valuation-form {
+  display: grid;
+  grid-template-columns: minmax(17rem, 1.3fr) minmax(12rem, 1fr) minmax(11rem, 0.72fr);
+  align-items: stretch;
+  gap: 0.625rem;
+  max-width: 54rem;
+  padding: 0.45rem;
+  border: 0.0625rem solid color-mix(in oklab, var(--color-border) 82%, var(--color-background-surface));
+  border-radius: var(--radius-container);
+  background: color-mix(in oklab, var(--color-background-surface) 94%, transparent);
+  box-shadow: 0 0.5rem 1.5rem color-mix(in oklab, var(--color-text-primary) 9%, transparent);
+  backdrop-filter: blur(0.55rem);
+}
+
+.valuation-form > :first-child {
+  position: relative;
+  min-height: 3.25rem;
+}
+
+.vehicle-autocomplete {
+  position: relative;
+  display: grid;
+  grid-template-rows: 0.9rem 1fr;
+  min-width: 0;
+  padding: 0.4rem 0.65rem 0.25rem;
+  border: 0.0625rem solid var(--color-border);
+  border-radius: var(--radius-element);
+  background: var(--color-background-surface);
+}
+
+.vehicle-field-label,
+.mileage-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-text-secondary);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 0.9rem;
+}
+
+.vehicle-field-label > span,
+.mileage-label > span {
+  color: var(--color-text-tertiary);
+  font-size: 0.62rem;
+  font-weight: 400;
+  line-height: inherit;
+}
+
+.vehicle-query-input {
+  width: 100%;
+  min-width: 0;
+  padding-block: 0;
+  line-height: 1.5rem;
+  border: 0;
+  outline: 0;
+  color: var(--color-text-primary);
+  background: transparent;
+}
+
+.vehicle-query-input::placeholder {
+  color: color-mix(in oklab, var(--color-text-secondary) 75%, var(--color-background-surface));
+  opacity: 1;
+}
+
+.vehicle-autocomplete:focus-within {
+  border-color: var(--color-border-blue);
+  box-shadow: 0 0 0 0.18rem color-mix(in oklab, var(--color-accent) 22%, transparent);
+}
+
+.vehicle-suggestions {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 0.35rem);
+  inset-inline: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem;
+  border: 0.0625rem solid var(--color-border);
+  border-radius: var(--radius-element);
+  background: var(--color-background-surface);
+  box-shadow: 0 0.5rem 1.4rem color-mix(in oklab, var(--color-text-primary) 14%, transparent);
+  list-style: none;
+}
+
+.vehicle-suggestions [role="option"],
+.catalog-status {
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--radius-element);
+  color: var(--color-text-primary);
+  font-size: 0.85rem;
+}
+
+.vehicle-suggestions [role="option"] {
+  cursor: pointer;
+}
+
+.vehicle-suggestions [role="option"]:hover,
+.vehicle-suggestions [role="option"].is-highlighted {
+  background: color-mix(in oklab, var(--color-accent) 11%, var(--color-background-surface));
+}
+
+.catalog-status {
+  color: var(--color-text-secondary);
+}
+
+.catalog-status button,
+.catalog-inline-error button {
+  padding: 0;
+  border: 0;
+  color: var(--color-text-blue);
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.catalog-inline-error {
+  position: absolute;
+  z-index: 2;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-element);
+  background: var(--color-background-surface);
+  color: var(--color-text-error);
+  font-size: 0.78rem;
+}
+
+.mileage-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 0.9rem 1fr;
+  min-width: 0;
+  min-height: 3.25rem;
+  align-items: center;
+  column-gap: 0.4rem;
+  padding: 0.4rem 0.65rem 0.25rem;
+  border: 0.0625rem solid var(--color-border);
+  border-radius: var(--radius-element);
+  background: var(--color-background-surface);
+}
+
+.mileage-input input {
+  grid-column: 1;
+  grid-row: 2;
+  width: 100%;
+  min-width: 0;
+  padding-block: 0;
+  line-height: 1.5rem;
+  border: 0;
+  outline: 0;
+  color: var(--color-text-primary);
+  background: transparent;
+}
+
+.mileage-input:focus-within {
+  border-color: var(--color-border-blue);
+  box-shadow: 0 0 0 0.18rem color-mix(in oklab, var(--color-accent) 22%, transparent);
+}
+
+.mileage-input input::placeholder {
+  color: color-mix(in oklab, var(--color-text-secondary) 75%, var(--color-background-surface));
+  opacity: 1;
+}
+
+.mileage-unit-select {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  padding: 0.2rem 1.35rem 0.2rem 0.25rem;
+  border: 0;
+  border-radius: var(--radius-element);
+  color: var(--color-text-secondary);
+  background-color: var(--color-background-surface);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mileage-unit-select:focus-visible {
+  outline: 0.15rem solid var(--color-accent);
+  outline-offset: 0.1rem;
+}
+
+.mileage-label {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.valuation-form > button {
+  min-width: 0;
+  min-height: 3.25rem;
+  height: 100%;
+  align-self: stretch;
+  justify-content: center;
+}
+
+.example-copy {
+  display: block;
+}
+
+.example-copy {
+  margin-block: 0.5rem 0;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+
+.form-error {
+  max-width: 43rem;
+  margin-block: 0.5rem 0;
+  color: var(--color-text-error);
+  font-size: 0.82rem;
+}
+
+.dashboard-content {
+  position: relative;
+  margin-top: 0;
+}
+
+.dashboard-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.dashboard-meta h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.dashboard-meta > p {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: minmax(19rem, 0.95fr) minmax(0, 1.55fr);
+  gap: 0.75rem;
+}
+
+.results-grid > .summary-panel,
+.results-grid > .mileage-panel {
+  min-width: 0;
+  border: 0.0625rem solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: color-mix(in oklab, var(--color-background-surface) 97%, var(--color-accent) 3%);
+  box-shadow: 0 0.12rem 0.4rem color-mix(in oklab, var(--color-text-primary) 3%, transparent);
+}
+
+.results-grid > * {
+  overflow: hidden;
+}
+
+.results-grid h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.summary-panel {
+  grid-row: span 1;
+}
+
+.summary-panel .eyebrow {
+  margin: 0 0 0.15rem;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 650;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.estimate-value {
+  color: var(--color-text-green);
+  margin: 0 0 0.1rem;
+  font-size: 3.4rem;
+  font-weight: 730;
+  letter-spacing: -0.06em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-panel > p:nth-of-type(2) {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.86rem;
+}
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 1.25rem 0 0.65rem;
+  padding: 0.7rem 0.25rem;
+  border-block: 0.0625rem solid var(--color-border);
+  background: transparent;
+  list-style: none;
+}
+
+.summary-stats > li {
+  display: grid;
+  gap: 0.25rem;
+  padding-inline: 0.6rem;
+}
+
+.summary-stats > li + li {
+  border-inline-start: 0.0625rem solid var(--color-border);
+}
+
+.summary-stats > li > span {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+
+.summary-stats strong {
+  font-size: 0.9rem;
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-panel .change-vehicle-button {
+  min-height: 1.9rem;
+  margin-block: var(--spacing-3);
+  padding: var(--spacing-2) var(--spacing-3);
+  color: var(--color-text-accent);
+}
+
+.summary-panel tbody > tr:last-child > :is(th, td) {
+  border-bottom: 0.0625rem solid var(--color-border);
+}
+
+.mileage-panel {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.price-mileage-chart {
+  margin-block-end: var(--spacing-5);
+}
+
+.price-mileage-chart__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+}
+
+.price-mileage-chart__heading h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.price-mileage-chart__legend {
+  color: var(--color-text-secondary);
+}
+
+.price-mileage-chart__legend-price::before,
+.price-mileage-chart__legend-range::before {
+  content: '';
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-inline-end: var(--spacing-1);
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.price-mileage-chart__legend-range::before {
+  opacity: 0.25;
+}
+
+.price-mileage-chart > p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.price-mileage-chart__viewport {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.price-mileage-chart__plot {
+  display: block;
+  width: 100%;
+  height: 16rem;
+  font-size: 0.75rem;
+  margin-block-start: var(--spacing-2);
+  overflow: hidden;
+}
+
+.price-mileage-chart__grid line {
+  stroke: color-mix(in oklab, var(--color-border) 55%, transparent);
+  stroke-width: 1;
+}
+
+.price-mileage-chart__grid text,
+.price-mileage-chart__axis-label {
+  fill: var(--color-text-secondary);
+  font-size: 1em;
+}
+
+.price-mileage-chart__axis {
+  stroke: var(--color-border);
+  stroke-width: 1.25;
+}
+
+.price-mileage-chart__range {
+  fill: var(--color-accent);
+  fill-opacity: 0.1;
+}
+
+.price-mileage-chart__line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.price-mileage-chart__hit-area {
+  fill: transparent;
+}
+
+.price-mileage-chart__guide {
+  stroke: var(--color-accent);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.65;
+}
+
+.price-mileage-chart__halo {
+  fill: var(--color-accent);
+  fill-opacity: 0.12;
+}
+
+.price-mileage-chart__marker {
+  fill: var(--color-accent);
+  stroke: var(--color-background-surface);
+  stroke-width: 1.5;
+}
+
+.price-mileage-chart__callout {
+  fill: var(--color-background-surface);
+  stroke: var(--color-border);
+  stroke-width: 0.75;
+  filter: drop-shadow(0 0.2rem 0.4rem color-mix(in oklab, var(--color-text-primary) 8%, transparent));
+}
+
+.price-mileage-chart__callout-mileage,
+.price-mileage-chart__callout-price {
+  fill: var(--color-text-primary);
+  font-size: 1em;
+}
+
+.price-mileage-chart__callout-price {
+  font-size: 1.2em;
+  font-weight: 650;
+}
+
+.price-mileage-chart__callout-label {
+  fill: var(--color-text-secondary);
+  font-size: 0.8em;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.table-footer {
+  padding-top: 0.55rem;
+}
+
+.table-footer p {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  max-width: 42rem;
+  border: 0.0625rem solid var(--color-border);
+  border-radius: var(--radius-container);
+  background: var(--color-background-surface);
+}
+
+.empty-state h2,
+.empty-state p {
+  margin: 0;
+}
+
+.empty-state p {
+  max-width: 38rem;
+  color: var(--color-text-secondary);
+}
+
+.sr-only {
+  position: absolute;
+  width: 0.0625rem;
+  height: 0.0625rem;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (min-width: 64rem) {
+  .results-grid {
+    grid-template-columns: minmax(18rem, 1.1fr) minmax(17rem, 0.9fr) minmax(18rem, 1.1fr);
+  }
+
+  .summary-panel {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .mileage-panel {
+    grid-column: 2 / 4;
+  }
+}
+
+/* Give the content more room and increase text and control sizes on large screens. */
+@media (min-width: 100rem) {
+  :root {
+    font-size: 112.5%;
+  }
+
+  .hero-content,
+  .dashboard-content {
+    width: min(140rem, calc(100% - 6vw));
+  }
+
+  .valuation-form {
+    max-width: 64rem;
+  }
+
+  .results-grid {
+    grid-template-columns: minmax(24rem, 32rem) minmax(0, 1fr);
+    gap: var(--spacing-6);
+    align-items: start;
+  }
+
+  .mileage-panel {
+    grid-column: 2;
+  }
+
+  .summary-panel > p,
+  .summary-panel details p {
+    max-width: 70ch;
+  }
+}
+
+@media (min-width: 160rem) {
+  :root {
+    font-size: 125%;
+  }
+}
+
+@media (min-width: 220rem) {
+  :root {
+    font-size: 150%;
+  }
+}
+
+@media (max-width: 48rem) {
+  .hero {
+    min-height: auto;
+    padding-block: 1.4rem 1.8rem;
+  }
+
+  .hero-content,
+  .dashboard-content {
+    width: min(100% - 1.5rem, 82.5rem);
+  }
+
+  .hero::after {
+    background: linear-gradient(90deg, color-mix(in oklab, var(--color-background-body) 93%, transparent), color-mix(in oklab, var(--color-background-body) 78%, transparent)), linear-gradient(0deg, var(--color-background-body) 0%, transparent 60%);
+  }
+
+  .hero-image {
+    object-position: 64% center;
+  }
+
+  .hero-content > h1 {
+    max-width: 25rem;
+    font-size: 1.8rem;
+  }
+
+  .hero-subtitle {
+    max-width: 25rem;
+    font-size: 0.9rem;
+  }
+
+  .valuation-form {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+
+  .valuation-form > button {
+    min-height: 2.9rem;
+  }
+
+  .dashboard-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-panel,
+  .mileage-panel {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .summary-panel {
+    order: 0;
+  }
+
+  .mileage-panel {
+    order: 0;
+  }
+
+  .panel-heading,
+  .table-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 27rem) {
+  .estimate-value {
+    font-size: 2.8rem;
+  }
+
+  .summary-stats > li {
+    padding-inline: 0.35rem;
+  }
+
+  .summary-stats > li > span {
+    font-size: 0.75rem;
+  }
+
+  .summary-stats strong {
+    font-size: 0.78rem;
+  }
+}
+
+/* Switch layouts once, then use the measured transforms to animate the search into place. */
+.valuation-app {
+  overflow-anchor: none;
+}
+
+.valuation-app.is-entry {
+  padding-bottom: 0;
+}
+
+.is-entry .hero {
+  display: grid;
+  align-items: center;
+  min-height: 100svh;
+  padding-block: var(--spacing-8);
+}
+
+.is-entry .hero-content > h1 {
+  width: fit-content;
+  max-width: 54rem;
+  margin-inline: auto;
+  font-size: 3.6rem;
+  text-align: center;
+  text-wrap: balance;
+}
+
+.is-entry .hero-subtitle,
+.is-entry .example-copy {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.is-entry .hero-subtitle {
+  margin-block: var(--spacing-4) var(--spacing-6);
+}
+
+.is-entry .valuation-form {
+  margin-inline: auto;
+}
+
+.is-entry .hero-image {
+  opacity: 0.3;
+}
+
+.hero-image {
+  transition: opacity 850ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-content[data-moving] > * {
+  transform-origin: top left;
+  animation: hero-settle 850ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hero-settle {
+  from {
+    transform: translate(var(--hero-from-x, 0), var(--hero-from-y, 0)) scale(var(--hero-from-scale, 1));
+  }
+  to {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.valuation-skeleton {
+  animation: results-reveal 220ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+.is-docked:has(.hero-content[data-moving]) .valuation-skeleton {
+  animation-delay: 160ms;
+}
+
+.skeleton-panel > .astryx-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.result-reveal {
+  animation: results-reveal 220ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+@keyframes results-reveal {
+  from { opacity: 0; transform: translateY(0.5rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.valuation-form > button {
+  transition: opacity 160ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.vehicle-suggestions {
+  animation: results-reveal 150ms cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+@media (max-width: 48rem) {
+  .is-entry .hero-content > h1 {
+    max-width: 25rem;
+    font-size: 2.75rem;
+  }
+
+  .is-docked .hero-content > h1 {
+    /* Keep the heading on the same lines as it scales from 2.75rem to 1.8rem. */
+    max-width: min(15rem, calc((100vw - 1.5rem) * 1.8 / 2.75));
+  }
+
+  .is-entry .hero {
+    padding-block: var(--spacing-6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .valuation-app *,
+  .valuation-app *::before,
+  .valuation-app *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

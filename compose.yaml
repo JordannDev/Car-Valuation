@@ -1,0 +1,45 @@
+name: valueapi
+
+services:
+  cli:
+    image: ${CLI_IMAGE:-valueapi-cli:local}
+    profiles: [tools]
+    build:
+      context: .
+      target: cli
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: ${MYSQL_USER:-valueapi}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-valueapi}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+    volumes:
+      - ${IMPORT_INPUT_DIR:-./sample_data}:/data:ro,z
+      - import_data:/home/valueapi/.local/share/valueapi/imports
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: valueapi
+      MYSQL_USER: valueapi
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'MYSQL_PWD="$$MYSQL_PASSWORD" mysql --host=127.0.0.1 --user="$$MYSQL_USER" --database="$$MYSQL_DATABASE" --execute="SELECT 1" > /dev/null'
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  import_data:
+  mysql_data:
