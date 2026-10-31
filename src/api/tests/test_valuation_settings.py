@@ -1,9 +1,12 @@
 from types import SimpleNamespace
 
 import pytest
+
 from app.valuation import init_valuation_settings
 
 PROJECTION_ENV = (
+    "VALUATION_HUBER_ENABLED",
+    "VALUATION_OUTLIER_FILTER_ENABLED",
     "VALUATION_PROJECTION_ENABLED",
     "VALUATION_PROJECTION_ANNUAL_DEPRECIATION_RATE",
     "VALUATION_PROJECTION_ANNUAL_MARKET_CHANGE_RATE",
@@ -33,6 +36,27 @@ def test_projection_defaults_disabled_while_existing_fallback_config_still_loads
     assert settings.fallback_beta_per_1000_km == -0.003
     assert settings.market_log_dispersion == 0.12
     assert settings.projection.enabled is False
+    assert settings.huber_enabled is True
+    assert settings.outlier_filter_enabled is True
+
+
+@pytest.mark.parametrize(
+    ("name", "field"),
+    [
+        ("VALUATION_HUBER_ENABLED", "huber_enabled"),
+        ("VALUATION_OUTLIER_FILTER_ENABLED", "outlier_filter_enabled"),
+    ],
+)
+def test_robustness_switches_load_and_reject_invalid_values(
+    settings_app, monkeypatch, name, field
+):
+    monkeypatch.setenv(name, "false")
+    init_valuation_settings(settings_app)
+    assert getattr(settings_app.config["MODEL_A_SETTINGS"], field) is False
+
+    monkeypatch.setenv(name, "yes")
+    with pytest.raises(ValueError, match=name):
+        init_valuation_settings(settings_app)
 
 
 def test_enabled_projection_accepts_complete_configuration(settings_app, monkeypatch):

@@ -2,9 +2,10 @@
 
 from dataclasses import replace
 from datetime import date, timedelta
-from math import exp
+from math import exp, log
 
 import pytest
+
 from app import create_app
 from app.valuation.contracts import Comparable, ModelASettings, ValuationQuery
 from app.valuation.service import (
@@ -36,9 +37,16 @@ def cohort(count=30):
     ]
 
 
-def test_huber_recovers_depreciation_and_normalizes_without_mileage_bias():
-    result = valuate(cohort(), QUERY, TODAY, SETTINGS)
-    assert result["estimatedAskingPrice"] == 20_000
+@pytest.mark.parametrize(
+    ("mileage_km", "expected_price"),
+    [(50_000, 23_200), (100_000, 20_000), (140_000, 17_700)],
+)
+def test_huber_recovers_depreciation_and_normalizes_without_mileage_bias(
+    mileage_km, expected_price
+):
+    result = valuate(cohort(), replace(QUERY, mileage_km=mileage_km), TODAY, SETTINGS)
+    assert result["referenceMileageKm"] == mileage_km
+    assert result["estimatedAskingPrice"] == expected_price
     beta, source = fit_beta(cohort(), [1 / 30] * 30, SETTINGS)
     assert beta == pytest.approx(-0.003, abs=1e-6)
     assert source == "huber"
@@ -48,7 +56,7 @@ def test_huber_recovers_depreciation_and_normalizes_without_mileage_bias():
     assert evidence["listingPrice"] != result["estimatedAskingPrice"]
     assert evidence["observedOn"] == TODAY.isoformat()
     assert evidence["location"] == {"city": None, "region": "Michigan", "country": "US"}
-    assert result["marketRange"] == {"low": 20_000, "high": 20_000}
+    assert result["marketRange"] == {"low": expected_price, "high": expected_price}
     assert sum(r["weight"] for r in result["comparables"]) == pytest.approx(1)
 
 
@@ -59,6 +67,35 @@ def test_positive_mileage_relationship_cannot_produce_positive_beta():
     beta, _ = fit_beta(rows, [1 / len(rows)] * len(rows), SETTINGS)
     assert beta <= 0
     assert beta == pytest.approx(0, abs=1e-7)
+
+
+def test_disabled_huber_matches_weighted_least_squares():
+    rows = cohort()
+    rows[-1] = replace(rows[-1], price=rows[-1].price * 1.4)
+    weights = [1.0] * (len(rows) - 1) + [0.1]
+    xs = [row.mileage_km / 1000 for row in rows]
+    ys = [log(row.price) for row in rows]
+    mean_x = sum(w * x for w, x in zip(weights, xs)) / sum(weights)
+    mean_y = sum(w * y for w, y in zip(weights, ys)) / sum(weights)
+    expected = sum(
+        w * (x - mean_x) * (y - mean_y) for w, x, y in zip(weights, xs, ys)
+    ) / sum(w * (x - mean_x) ** 2 for w, x in zip(weights, xs))
+
+    beta, source = fit_beta(rows, weights, replace(SETTINGS, huber_enabled=False))
+
+    assert source == "least_squares"
+    assert beta == pytest.approx(expected, abs=1e-7)
+
+
+def test_disabled_outlier_filter_retains_extreme_price_weight():
+    rows = cohort()
+    rows[15] = replace(rows[15], price=200_000)
+    result = valuate(
+        rows, QUERY, TODAY, replace(SETTINGS, outlier_filter_enabled=False)
+    )
+
+    evidence = next(row for row in result["comparables"] if row["vehicleId"] == 15)
+    assert evidence["weight"] > 0
 
 
 def test_isolated_price_outlier_excluded_after_normalization():
@@ -352,6 +389,8 @@ def test_evidence_failure_and_database_error_are_distinct(app, monkeypatch):
 def test_repository_exact_match_latest_completed_snapshot_and_unit_safety(app):
     from datetime import datetime
 
+    from sqlalchemy import MetaData
+
     from app.extensions import db
     from app.models import (
         Dealer,
@@ -364,7 +403,6 @@ def test_repository_exact_match_latest_completed_snapshot_and_unit_safety(app):
         Vehicle,
     )
     from app.valuation.repository import load_comparables
-    from sqlalchemy import MetaData
 
     with app.app_context():
         # Test the query without changing the MySQL table definitions used by the app.

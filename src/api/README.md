@@ -48,8 +48,21 @@ The range and confidence labels are provisional, not statistical guarantees.
 Errors: `400` invalid input, `422` insufficient evidence, `503` database unavailable.
 
 Time projection is disabled by default. Calibration and projection settings are
-in [config.py](app/config.py); calculations and thresholds are in
+loaded in [valuation/__init__.py](app/valuation/__init__.py); calculations and thresholds are in
 [service.py](app/valuation/service.py) and [contracts.py](app/valuation/contracts.py).
+
+Valuation controls accept `true` or `false` and require an API restart:
+
+| Environment variable | Default | When disabled |
+| --- | --- | --- |
+| `VALUATION_HUBER_ENABLED` | `true` | Mileage fit uses weighted least squares instead of Huber loss. |
+| `VALUATION_OUTLIER_FILTER_ENABLED` | `true` | Unusual adjusted prices retain their base dealer-balanced weights. Population safeguards still apply. |
+| `VALUATION_PROJECTION_ENABLED` | `false` | Historical estimates are not projected to today's date. |
+
+Huber loss and the adjusted-price outlier filter are independent. Disable both
+to remove both forms of outlier weight reduction. Mileage adjustment and dealer
+balancing remain enabled. With Huber disabled, confidence cannot reach `high`
+under the existing confidence rules.
 
 ## Development
 

@@ -71,6 +71,10 @@ def init_valuation_settings(app) -> None:
     )
     # Load the checked settings once so every request uses the same values.
     app.config["MODEL_A_SETTINGS"] = ModelASettings(
+        huber_enabled=_environment_bool("VALUATION_HUBER_ENABLED", default=True),
+        outlier_filter_enabled=_environment_bool(
+            "VALUATION_OUTLIER_FILTER_ENABLED", default=True
+        ),
         fallback_beta_per_1000_km=values["VALUATION_FALLBACK_BETA_PER_1000_KM"],
         market_log_dispersion=values["VALUATION_MARKET_LOG_DISPERSION"],
         projection=ProjectionSettings(

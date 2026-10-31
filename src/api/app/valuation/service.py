@@ -167,7 +167,8 @@ def fit_beta(
     """Fit log price against mileage in thousands of kilometers.
 
     Rows must have positive finite prices and recorded mileage in kilometers.
-    The slope is constrained to be nonpositive and uses dealer-balanced weights. If the
+    The slope is constrained to be nonpositive and uses dealer-balanced weights.
+    Huber loss is optional; disabling it uses weighted squared residuals. If the
     weighted mileage span or effective sample is insufficient, a finite nonpositive
     configured fallback is used; otherwise :class:`InsufficientEvidence` is raised.
     """
@@ -187,6 +188,11 @@ def fit_beta(
 
         centered_mileage = x - center
         weight_array = np.asarray(weights)
+        residual_weights = (
+            np.ones_like(weight_array)
+            if settings.huber_enabled
+            else np.sqrt(weight_array)
+        )
 
         def loss(z):
             """Apply dealer-balanced weights to the Huber loss and its derivatives."""
@@ -207,16 +213,21 @@ def fit_beta(
         # Keep the slope at or below zero so extra mileage cannot increase the estimated
         # price.
         result = least_squares(
-            lambda parameters: parameters[0] + parameters[1] * centered_mileage - y,
+            lambda parameters: (
+                (parameters[0] + parameters[1] * centered_mileage - y)
+                * residual_weights
+            ),
             [float(np.median(y)), -0.001],
             bounds=([-np.inf, -np.inf], [np.inf, 0]),
             # SciPy accepts callable loss; its unannotated default is inferred as str.
-            loss=loss,  # pyright: ignore[reportArgumentType]
+            loss=loss if settings.huber_enabled else "linear",  # pyright: ignore[reportArgumentType]
             f_scale=settings.huber_scale,
             max_nfev=500,
         )
         if result.success and np.all(np.isfinite(result.x)):
-            return float(result.x[1]), "huber"
+            return float(result.x[1]), (
+                "huber" if settings.huber_enabled else "least_squares"
+            )
 
     # Use a configured fallback if these listings cannot support a reliable mileage fit.
     beta = settings.fallback_beta_per_1000_km
@@ -320,7 +331,7 @@ def _outlier_weights(
     adjusted_logs: list[float],
     settings: ModelASettings,
 ) -> tuple[float, list[float]]:
-    """Measure robust price dispersion and downweight or exclude unusual prices."""
+    """Measure dispersion and optionally downweight or exclude unusual prices."""
 
     center = median(adjusted_logs)
     mad = median(abs(value - center) for value in adjusted_logs)
@@ -333,6 +344,9 @@ def _outlier_weights(
             )
         if not isfinite(dispersion) or dispersion <= 0:
             raise ValueError("Market log dispersion must be positive and finite")
+
+    if not settings.outlier_filter_enabled:
+        return dispersion, dealer_weights(rows, raw_weights, settings.dealer_share_cap)
 
     scores = [abs(value - center) / dispersion for value in adjusted_logs]
     unusual_count = sum(score > OUTLIER_SCORE_THRESHOLD for score in scores)

@@ -183,6 +183,8 @@ class ModelASettings:
     mileage_decay_km: float = 80_000
     dealer_share_cap: float = 0.2
     huber_scale: float = 0.1
+    huber_enabled: bool = True
+    outlier_filter_enabled: bool = True
 
     # A fallback must be configured if the listings cannot support a reliable mileage
     # fit.
